@@ -1,7 +1,7 @@
 from QuantLib import Settings, Date, Option as QLOption, Period, Months
-from ql_wrapper.market import MarketParams
-from ql_wrapper.models import BlackScholesModel
-from ql_wrapper.instruments import Option
+from lawson_quant_library.market import MarketParams
+from lawson_quant_library.models import BlackScholesModel
+from lawson_quant_library.instruments import Option
 
 Settings.instance().evaluationDate = Date.todaysDate()
 mat = Date().todaysDate() + Period(6, Months)

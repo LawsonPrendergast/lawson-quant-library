@@ -1,9 +1,9 @@
 from QuantLib import Settings, Date, Period, Months, Option as QLOption, BlackVolTermStructure
 import QuantLib as ql 
-from ql_wrapper.market import MarketParams
-from ql_wrapper.models import BlackScholesModel
-from ql_wrapper.instruments import Option
-from ql_wrapper.vol_surface import read_chain_csv, build_vol_surface
+from lawson_quant_library.market import MarketParams
+from lawson_quant_library.models import BlackScholesModel
+from lawson_quant_library.instruments import Option
+from lawson_quant_library.vol_surface import read_chain_csv, build_vol_surface
 
 def test_reprice_with_surface_handle():
 

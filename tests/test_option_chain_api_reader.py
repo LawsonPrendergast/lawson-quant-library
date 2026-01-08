@@ -1,5 +1,5 @@
 import pandas as pd
-from ql_wrapper.data import OptionChainReader
+from lawson_quant_library.data import OptionChainReader
 
 def test_from_api_minimal_schema():
     df = OptionChainReader.from_api('AAPL')

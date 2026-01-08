@@ -1,7 +1,7 @@
 from QuantLib import Settings, Date, Period, Months, Option as QLOption
-from ql_wrapper.market import MarketParams
-from ql_wrapper.models import BlackScholesModel
-from ql_wrapper.instruments import Option
+from lawson_quant_library.market import MarketParams
+from lawson_quant_library.models import BlackScholesModel
+from lawson_quant_library.instruments import Option
 
 def test_call_price_monotone_in_r_and_sigma():
     Settings.instance().evaluationDate = Date.todaysDate()

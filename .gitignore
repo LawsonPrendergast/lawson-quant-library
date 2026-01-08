@@ -1,9 +1,19 @@
-# Virtual environment
+# Environments
+.venv/
 venv/
+.env/
 
-# Byte‑compiled / cache
+# Python artifacts
 __pycache__/
 *.py[cod]
+*.egg-info/
+dist/
+build/
 
-# Editor settings
-.vscode/
+# Notebook artifacts
+.ipynb_checkpoints/
+
+# Local-only scratch / archives
+_archive/
+lawson_quant_library__OLD/
+lawson_quant_library__ROOT_OLD/

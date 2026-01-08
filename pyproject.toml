@@ -1,5 +1,5 @@
 [project]
-name = "quant-training"
+name = "lawson-quant-library"
 version = "0.1.0"
-description = "QuantLib wrapper and Monte Carlo pricing demos"
-requires-python = ">=3.10"
+description = "Quant library for option pricing, curves, vol surfaces, and model comparison"
+requires-python = ">=3.11"

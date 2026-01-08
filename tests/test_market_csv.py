@@ -1,4 +1,4 @@
-from ql_wrapper.market import MarketParams
+from lawson_quant_library.market import MarketParams
 from pathlib import Path
 
 def test_load_from_csv():

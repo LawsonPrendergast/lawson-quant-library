@@ -1,4 +1,4 @@
-from ql_wrapper.vol_surface import read_chain_csv, build_vol_surface
+from lawson_quant_library.vol_surface import read_chain_csv, build_vol_surface
 from QuantLib import Settings, Actual365Fixed
 
 chain = read_chain_csv("option_chain.csv")

@@ -4,8 +4,8 @@ from QuantLib import (
     SimpleQuote, QuoteHandle, YieldTermStructureHandle, FlatForward,
     BlackVolTermStructureHandle, BlackConstantVol, MCEuropeanEngine, Option as QLOption, NullCalendar
 )
-from ql_wrapper.instruments import Option
-from ql_wrapper.models import MonteCarloModel
+from lawson_quant_library.instruments import Option
+from lawson_quant_library.models import MonteCarloModel
 
 def test_qlib_mc_matches_our_mc_within_se():
     #Valuation Date

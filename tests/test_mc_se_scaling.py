@@ -1,7 +1,7 @@
 from QuantLib import Settings, Date, Period, Months, Option as QLOption
-from ql_wrapper.market import MarketParams
-from ql_wrapper.models import MonteCarloModel
-from ql_wrapper.instruments import Option
+from lawson_quant_library.market import MarketParams
+from lawson_quant_library.models import MonteCarloModel
+from lawson_quant_library.instruments import Option
 
 def test_mc_se_scales_like_one_over_sqrt_n():
     Settings.instance().evaluationDate = Date.todaysDate()
