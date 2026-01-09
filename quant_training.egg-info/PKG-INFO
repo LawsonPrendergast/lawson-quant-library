@@ -1,5 +1,0 @@
-Metadata-Version: 2.4
-Name: quant-training
-Version: 0.1.0
-Summary: QuantLib wrapper and Monte Carlo pricing demos
-Requires-Python: >=3.10
