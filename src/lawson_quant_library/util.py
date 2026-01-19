@@ -1,14 +1,19 @@
+"""Utility functions for dates, calendars, and day-count conventions.
 
-"""Utility functions for dates, calendars, and day-count conventions."""
+Design goal:
+- QuantLib may be used internally for correctness.
+- Public-facing helpers should accept and return standard Python types (e.g., `datetime.date`).
+"""
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Optional, Iterator
-from contextlib import contextmanager
+from typing import Any, Iterator
 
-# --- QuantLib import (kept internal to utils) ---
+# QuantLib is an optional dependency at runtime for these utilities.
+# We keep the import isolated here so the rest of the package doesn't need to import QuantLib directly.
 try:
     import QuantLib as ql
 except Exception as e:  # pragma: no cover
@@ -21,13 +26,69 @@ else:
 def _require_ql() -> Any:
     if ql is None:
         raise ImportError(
-            "QuantLib is required for calendar/date utilities. "
-            "Install QuantLib in your environment."
+            "QuantLib is required for calendar/date utilities. Install QuantLib in your environment."
         ) from _QL_IMPORT_ERROR
     return ql
 
 
-# --- Dates ---
+# ----------------------------
+# Dates
+# ----------------------------
+
+def to_date(value: Any) -> date:
+    """Convert common date inputs to a Python `datetime.date`.
+
+    Accepts:
+      - datetime.date
+      - datetime.datetime
+      - ISO string 'YYYY-MM-DD'
+      - QuantLib.Date (if QuantLib is installed)
+
+    Returns:
+      - datetime.date
+    """
+    if value is None:
+        raise TypeError("date value is required")
+
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    if isinstance(value, str):
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        except ValueError as e:
+            raise TypeError(
+                "Date string must be ISO format 'YYYY-MM-DD'. "
+                f"Got {value!r}."
+            ) from e
+
+    # QuantLib.Date support (optional)
+    if ql is not None:
+        ql_ = _require_ql()
+        if isinstance(value, ql_.Date):
+            # QuantLib Date has year(), month(), dayOfMonth()
+            return date(int(value.year()), int(value.month()), int(value.dayOfMonth()))
+
+    raise TypeError(
+        "Date must be datetime.date/datetime, ISO string 'YYYY-MM-DD', "
+        "or QuantLib.Date (if installed). "
+        f"Got {type(value).__name__}."
+    )
+
+
+def to_ql_date(value: Any) -> Any:
+    """Convert common date inputs to `QuantLib.Date`.
+
+    This is an internal bridge when the underlying implementation uses QuantLib.
+    Notebooks and user code should prefer `to_date(...)`.
+    """
+    ql_ = _require_ql()
+    d = to_date(value)
+    return ql_.Date(d.day, d.month, d.year)
+
 
 @contextmanager
 def evaluation_date(d: Any) -> Iterator[None]:
@@ -41,62 +102,13 @@ def evaluation_date(d: Any) -> Iterator[None]:
         # SavedSettings restores on destruction
         del saved
 
-def to_ql_date(value: Any) -> Any:
-    """Convert common date inputs to `QuantLib.Date`.
 
-    Accepts:
-      - QuantLib.Date
-      - datetime.date / datetime.datetime
-      - ISO string 'YYYY-MM-DD'
-
-    Returns:
-      - QuantLib.Date
-
-    Note: Keep this in utils so notebooks never have to touch QuantLib.Date.
-    """
-    ql_ = _require_ql()
-
-    if value is None:
-        raise TypeError("date value is required")
-
-    if isinstance(value, ql_.Date):
-        return value
-
-    if isinstance(value, datetime):
-        value = value.date()
-
-    if isinstance(value, date):
-        return ql_.Date(value.day, value.month, value.year)
-
-    if isinstance(value, str):
-        try:
-            dt = datetime.strptime(value, "%Y-%m-%d").date()
-        except ValueError as e:
-            raise TypeError(
-                "Date string must be ISO format 'YYYY-MM-DD'. "
-                f"Got {value!r}."
-            ) from e
-        return ql_.Date(dt.day, dt.month, dt.year)
-
-    raise TypeError(
-        "Date must be QuantLib.Date, datetime.date/datetime, or ISO string 'YYYY-MM-DD'. "
-        f"Got {type(value).__name__}."
-    )
-
-
-# --- Calendars ---
+# ----------------------------
+# Calendars
+# ----------------------------
 
 def get_calendar(name: str = "US:NYSE") -> Any:
-    """Return a QuantLib calendar by a simple name.
-
-    Supported (initial):
-      - 'US:NYSE' (default)
-      - 'US:SETTLEMENT'
-      - 'TARGET'
-      - 'NULL'
-
-    Extend this mapping as you add currencies/regions.
-    """
+    """Return a QuantLib calendar by a simple name."""
     ql_ = _require_ql()
 
     key = name.strip().upper()
@@ -115,18 +127,12 @@ def get_calendar(name: str = "US:NYSE") -> Any:
     )
 
 
-# --- Day count / year fractions ---
+# ----------------------------
+# Day count / year fractions
+# ----------------------------
 
 def get_day_count(name: str = "ACT365F") -> Any:
-    """Return a QuantLib day-count convention.
-
-    Supported (initial):
-      - 'ACT365F'
-      - 'ACT360'
-      - '30/360' (BondBasis)
-
-    Extend as needed.
-    """
+    """Return a QuantLib day-count convention."""
     ql_ = _require_ql()
 
     key = name.replace(" ", "").upper()
@@ -138,14 +144,30 @@ def get_day_count(name: str = "ACT365F") -> Any:
     if key in {"30/360", "30_360", "30360"}:
         return ql_.Thirty360(ql_.Thirty360.BondBasis)
 
-
     raise ValueError(f"Unknown day count {name!r}. Supported: ACT365F, ACT360, 30/360")
 
 
-# --- Python-facing Calendar wrapper ---
+def year_fraction(
+    start: Any,
+    end: Any,
+    *,
+    day_count: str = "ACT365F",
+) -> float:
+    """Compute year fraction between two dates using a day-count convention."""
+    dc = get_day_count(day_count)
+    d1 = to_ql_date(start)
+    d2 = to_ql_date(end)
+    return float(dc.yearFraction(d1, d2))
+
+
+# ----------------------------
+# Python-facing Calendar wrapper
+# ----------------------------
 
 @dataclass
 class Calendar:
+    """A small wrapper that accepts/returns Python dates while using QuantLib internally."""
+
     name: str = "US:NYSE"
     day_count: str = "ACT365F"
 
@@ -154,9 +176,6 @@ class Calendar:
 
     def _ql_day_count(self) -> Any:
         return get_day_count(self.day_count)
-
-    def to_date(self, value: Any) -> Any:
-        return to_ql_date(value)
 
     def set_evaluation_date(self, value: Any) -> None:
         ql_ = _require_ql()
@@ -167,7 +186,7 @@ class Calendar:
         with evaluation_date(value):
             yield
 
-    def adjust(self, value: Any, convention: str = "FOLLOWING") -> Any:
+    def adjust(self, value: Any, convention: str = "FOLLOWING") -> date:
         ql_ = _require_ql()
         cal = self._ql_calendar()
         d = to_ql_date(value)
@@ -185,14 +204,15 @@ class Calendar:
                 f"Unknown convention {convention!r}. Supported: FOLLOWING, MODFOLLOWING, PRECEDING, UNADJUSTED"
             )
 
-        return cal.adjust(d, mapping[key])
+        out = cal.adjust(d, mapping[key])
+        return to_date(out)
 
     def is_business_day(self, value: Any) -> bool:
         cal = self._ql_calendar()
         d = to_ql_date(value)
         return bool(cal.isBusinessDay(d))
 
-    def advance(self, value: Any, *, days: int = 0, months: int = 0, years: int = 0) -> Any:
+    def advance(self, value: Any, *, days: int = 0, months: int = 0, years: int = 0) -> date:
         ql_ = _require_ql()
         cal = self._ql_calendar()
         d = to_ql_date(value)
@@ -203,13 +223,14 @@ class Calendar:
             d = cal.advance(d, ql_.Period(int(months), ql_.Months))
         if days:
             d = cal.advance(d, ql_.Period(int(days), ql_.Days))
-        return d
+        return to_date(d)
 
-    def add_tenor(self, value: Any, tenor: str) -> Any:
+    def add_tenor(self, value: Any, tenor: str) -> date:
         cal = self._ql_calendar()
         d = to_ql_date(value)
         t = parse_tenor(tenor)
-        return cal.advance(d, t.to_ql_period())
+        out = cal.advance(d, t.to_ql_period())
+        return to_date(out)
 
     def year_fraction(self, start: Any, end: Any) -> float:
         dc = self._ql_day_count()
@@ -218,23 +239,9 @@ class Calendar:
         return float(dc.yearFraction(d1, d2))
 
 
-def year_fraction(
-    start: Any,
-    end: Any,
-    *,
-    day_count: str = "ACT365F",
-) -> float:
-    """Compute year fraction between two dates using a day-count convention."""
-    ql_ = _require_ql()
-
-    dc = get_day_count(day_count)
-    d1 = to_ql_date(start)
-    d2 = to_ql_date(end)
-
-    return float(dc.yearFraction(d1, d2))
-
-
-# --- Optional: simple tenor parsing (useful for curve helpers later) ---
+# ----------------------------
+# Optional: simple tenor parsing
+# ----------------------------
 
 @dataclass(frozen=True)
 class Tenor:

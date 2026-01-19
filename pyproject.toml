@@ -3,3 +3,13 @@ name = "lawson-quant-library"
 version = "0.1.0"
 description = "Quant library for option pricing, curves, vol surfaces, and model comparison"
 requires-python = ">=3.11"
+dependencies = [
+    "QuantLib",
+    "numpy",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -17,24 +17,12 @@ from QuantLib import (
 )
 
 from lawson_quant_library.parameter import DivCurve, EQVol, IRCurve
+from lawson_quant_library.util import to_date
 
 
 @dataclass
 class BlackScholesAnalyticEQModel:
-    """Analytic Black–Scholes (Merton) model for European equity options.
-
-    This model is intentionally small and explicit so you can learn the flow:
-      1) Build a stochastic process (spot + q + r + vol)
-      2) Build payoff/exercise from the Option
-      3) Attach the analytic engine
-      4) Read NPV and greeks from QuantLib
-
-    Notes:
-      - This engine supports EUROPEAN exercise only.
-      - QuantLib objects live ONLY in the model layer (this file).
-      - Notebooks should call your library API (EQOption.price/greeks), not QuantLib.
-      - Maturity can be passed as QuantLib.Date, datetime.date/datetime, or ISO string (YYYY-MM-DD).
-    """
+    """Analytic Black–Scholes–Merton model for European equity options."""
 
     spot: float
     ir_curve: IRCurve
@@ -99,30 +87,13 @@ class BlackScholesAnalyticEQModel:
 
     @staticmethod
     def _to_ql_date(value: Any) -> QLDate:
-        """Convert common date inputs to QuantLib.Date."""
         if value is None:
             raise TypeError("maturity_date is required.")
 
+        # Allow passing QuantLib.Date directly.
         if isinstance(value, QLDate):
             return value
 
-        if isinstance(value, datetime):
-            value = value.date()
-
-        if isinstance(value, date):
-            return QLDate(value.day, value.month, value.year)
-
-        if isinstance(value, str):
-            try:
-                dt = datetime.strptime(value, "%Y-%m-%d").date()
-            except ValueError as e:
-                raise TypeError(
-                    "maturity_date string must be ISO format 'YYYY-MM-DD'. "
-                    f"Got {value!r}."
-                ) from e
-            return QLDate(dt.day, dt.month, dt.year)
-
-        raise TypeError(
-            "maturity_date must be QuantLib.Date, datetime.date/datetime, or ISO string 'YYYY-MM-DD'. "
-            f"Got {type(value).__name__}."
-        )
+        # Normalize common Python inputs (str / datetime / date) to a Python date.
+        py_date = to_date(value)
+        return QLDate(py_date.day, py_date.month, py_date.year)

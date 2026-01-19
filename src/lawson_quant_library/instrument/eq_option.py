@@ -6,6 +6,7 @@ from typing import Any, Optional
 from lawson_quant_library.instrument.option import Option
 from lawson_quant_library.model.bs_analytic_eq import BlackScholesAnalyticEQModel
 from lawson_quant_library.parameter import DivCurve, EQVol, IRCurve
+from lawson_quant_library.util import Calendar
 
 
 @dataclass
@@ -16,9 +17,14 @@ class EQOption(Option):
     div_curve: Optional[DivCurve] = None
     vol: Optional[EQVol] = None
     spot: Optional[float] = None
+    calendar: Optional[Calendar] = None
 
     def __post_init__(self) -> None:
         super().__post_init__()
+
+        # Default the underlying for this product type.
+        if getattr(self, "underlying", None) in (None, ""):
+            self.underlying = "Equity"
 
         if self.underlying not in {"Equity", "EQ"}:
             raise ValueError(
@@ -26,30 +32,27 @@ class EQOption(Option):
             )
 
         # Normalize engine naming: treat "default" as the first supported engine.
-        if getattr(self, "pricing_engine", None) == "default":
+        if getattr(self, "pricing_engine", "default") == "default":
             self.pricing_engine = "bs_analytic"
 
-        # Do not force-build the model here; market may be set later via set_market().
-        if self.model is None:
-            self.model = self._maybe_build_default_model()
-
-        
+        if self.calendar is None:
+            self.calendar = Calendar()
 
     def _maybe_build_default_model(self) -> Optional[Any]:
-        """Map `pricing_engine` -> concrete model.
-
-        Returns None if the engine is unsupported or if required market inputs
-        are not yet set.
-        """
-        # Normalize engine naming defensively.
-        if self.pricing_engine == "default":
-            self.pricing_engine = "bs_analytic"
-
-        if self.pricing_engine != "bs_analytic":
+        # Only build for the supported engine.
+        engine = str(getattr(self, "pricing_engine", "bs_analytic")).lower()
+        if engine == "default":
+            engine = "bs_analytic"
+        if engine != "bs_analytic":
             return None
 
         # Only build if market inputs are present; do not raise here.
-        if self.spot is None or self.ir_curve is None or self.div_curve is None or self.vol is None:
+        if (
+            self.spot is None
+            or self.ir_curve is None
+            or self.div_curve is None
+            or self.vol is None
+        ):
             return None
 
         return BlackScholesAnalyticEQModel(
@@ -67,6 +70,7 @@ class EQOption(Option):
         ir_curve: Optional[IRCurve] = None,
         div_curve: Optional[DivCurve] = None,
         vol: Optional[EQVol] = None,
+        calendar: Optional[Calendar] = None,
     ) -> None:
         if spot is not None:
             self.spot = float(spot)
@@ -76,12 +80,13 @@ class EQOption(Option):
             self.div_curve = div_curve
         if vol is not None:
             self.vol = vol
+        if calendar is not None:
+            self.calendar = calendar
 
-        # refresh model if we are using the default engine wiring
-        if self.pricing_engine == "default":
+        # Normalize alias and clear model so it can be rebuilt on demand.
+        if getattr(self, "pricing_engine", "default") == "default":
             self.pricing_engine = "bs_analytic"
-        if self.model is None and self.pricing_engine == "bs_analytic":
-            self.model = self._maybe_build_default_model()
+        self.model = None
 
     def validate_market(self) -> None:
         missing = []
@@ -108,7 +113,9 @@ class EQOption(Option):
         """Compute implied volatility via Newton–Raphson (requires a reference_date for QuantLib term structures)."""
         self.validate_market()
 
-        engine = "bs_analytic" if self.pricing_engine == "default" else self.pricing_engine
+        engine = str(getattr(self, "pricing_engine", "bs_analytic")).lower()
+        if engine == "default":
+            engine = "bs_analytic"
         if engine != "bs_analytic":
             raise ValueError(
                 "implied_vol is currently implemented for pricing_engine='bs_analytic' only. "
@@ -146,16 +153,15 @@ class EQOption(Option):
         raise RuntimeError("Implied vol solver failed to converge")
 
     def set_pricing_engine(self, pricing_engine: str) -> None:
-        """Set pricing engine by string and rebuild default model if possible."""
-        self.pricing_engine = str(pricing_engine).lower()
+        """Set pricing engine by string and clear model so it can be rebuilt on demand."""
+        # If Option defines a base setter, use it.
+        try:
+            super().set_pricing_engine(pricing_engine)  # type: ignore[misc]
+        except Exception:
+            self.pricing_engine = str(pricing_engine).lower()
 
-        # Normalize alias
-        if self.pricing_engine == "default":
+        if getattr(self, "pricing_engine", "default") == "default":
             self.pricing_engine = "bs_analytic"
 
-        # Clear any existing model
+        # Force rebuild on next pricing call.
         self.model = None
-
-        # Rebuild if market is already present
-        if self.pricing_engine == "bs_analytic":
-            self.model = self._maybe_build_default_model()

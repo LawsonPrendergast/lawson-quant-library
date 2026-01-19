@@ -17,3 +17,4 @@ build/
 _archive/
 lawson_quant_library__OLD/
 lawson_quant_library__ROOT_OLD/
+src/lawson_quant_library/data/*.csv
