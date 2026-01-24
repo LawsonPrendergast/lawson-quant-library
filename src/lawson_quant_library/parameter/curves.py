@@ -1,3 +1,11 @@
+"""
+Curve market parameters:
+- IRCurve
+- FXCurve
+- DivCurve
+"""
+
+
 from __future__ import annotations
 
 from dataclasses import dataclass

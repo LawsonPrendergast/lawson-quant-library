@@ -212,11 +212,34 @@ class Calendar:
         d = to_ql_date(value)
         return bool(cal.isBusinessDay(d))
 
-    def advance(self, value: Any, *, days: int = 0, months: int = 0, years: int = 0) -> date:
+    def advance(
+        self,
+        value: Any,
+        tenor: str | None = None,
+        *,
+        days: int = 0,
+        months: int = 0,
+        years: int = 0,
+    ) -> date:
+        """Advance a date.
+
+        Supports two calling styles:
+          1) `advance(date, tenor)` where tenor is like '1M', '3M', '1Y'.
+          2) `advance(date, days=..., months=..., years=...)`.
+
+        Returns a Python `datetime.date`.
+        """
         ql_ = _require_ql()
         cal = self._ql_calendar()
         d = to_ql_date(value)
 
+        # Tenor-style advance (e.g., advance(ref, '3M'))
+        if tenor is not None:
+            t = parse_tenor(tenor)
+            out = cal.advance(d, t.to_ql_period())
+            return to_date(out)
+
+        # Keyword-style advance
         if years:
             d = cal.advance(d, ql_.Period(int(years), ql_.Years))
         if months:
