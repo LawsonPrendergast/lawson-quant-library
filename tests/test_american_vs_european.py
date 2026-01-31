@@ -1,7 +1,6 @@
-from QuantLib import Date, Period, Months, Option as QLOption
-from lawson_quant_library.market import MarketParams
-from lawson_quant_library.instruments import Option
-from lawson_quant_library.models import BlackScholesModel
+from lawson_quant_library.parameter import IRCurve, EQVol
+from lawson_quant_library.instrument import EQOption
+from lawson_quant_library.model import BlackScholesAnalyticEQModel
 
 def  test_american_price_higher_than_european():
 

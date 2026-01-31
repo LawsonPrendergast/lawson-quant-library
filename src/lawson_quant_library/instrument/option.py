@@ -11,12 +11,12 @@ class Option(Instrument):
     """
     Base option class.
 
-    Reuses your old design:
-    - delegate pricing to model
-    - allow passing model per-call or stored on self
-    - greek fallbacks: delta/gamma/vega use greeks() if individual methods missing
+    Design principles:
+    - Pricing is delegated to an external model
+    - A model may be passed per call or stored on the option instance
+    - Greek methods (delta, gamma, vega) fall back to greeks() when unavailable
 
-    Product-specific subclasses (EQOption, FXOption, IROption) will inherit this.
+    Product-specific subclasses (EQOption, FXOption, IROption) inherit from this base.
     """
     strike: float = 0.0
     maturity_date: Any = None  # leave flexible for now (QL Date, datetime.date, etc.)

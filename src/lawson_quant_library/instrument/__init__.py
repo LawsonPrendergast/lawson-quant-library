@@ -1,7 +1,7 @@
 from .instrument import Instrument
 from .option import Option
 from .eq_option import EQOption
-from .FXOption import FXOption
+from .fx_option import FXOption
 
-__all__ = ["Instrument", "Option", "EQOption", "FXOption"]
+__all__ = ["Instrument", "Option", "EQOption", "fx_option"]
 

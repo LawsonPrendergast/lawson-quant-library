@@ -52,6 +52,10 @@ class BlackScholesAnalyticEQModel:
         ql_opt.setPricingEngine(self._engine)
         return float(ql_opt.NPV())
 
+    def vega(self, option: Any, **_: Any) -> float:
+        """Return option vega (dPrice/dVol). Convenience wrapper around `greeks()`."""
+        return float(self.greeks(option).get("vega", 0.0))
+
     def greeks(self, option: Any, **_: Any) -> Dict[str, float]:
         ql_opt = self._build_ql_option(option)
         ql_opt.setPricingEngine(self._engine)
