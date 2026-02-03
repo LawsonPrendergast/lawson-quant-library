@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 from lawson_quant_library.model.gk_analytic_fx import GarmanKohlhagenAnalyticFXModel
-from lawson_quant_library.instrument.option import Option
+from lawson_quant_library.instrument.option.option import Option
 from lawson_quant_library.util import Calendar
 
 
@@ -15,7 +15,7 @@ class FXOption(Option):
 
     # Underlying / economics
     spot: Optional[float] = None
-    strike: Optional[float] = None
+    strike: float
     maturity_date: Optional[Any] = None
     option_type: str = "call"  # "call" or "put"
     style: str = "european"  # keep consistent with EQOption usage

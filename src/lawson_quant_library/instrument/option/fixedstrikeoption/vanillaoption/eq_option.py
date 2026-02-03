@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from lawson_quant_library.instrument.option import Option
+from lawson_quant_library.instrument.option.option import Option
 from lawson_quant_library.model.bs_analytic_eq import BlackScholesAnalyticEQModel
 from lawson_quant_library.parameter import DivCurve, EQVol, IRCurve
 from lawson_quant_library.util import Calendar

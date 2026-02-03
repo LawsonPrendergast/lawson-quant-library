@@ -1,5 +1,3 @@
-
-
 """Option structure builders.
 
 Goal: provide notebook-friendly builders that work directly on a normalized options chain
@@ -24,56 +22,15 @@ You can pass a mapping of column names if your adapter differs.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, Iterable, List, Literal, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 
+from lawson_quant_library.portfolio.portfolio import Leg, Portfolio
+
 OptionRight = Literal["call", "put"]
-
-
-# -----------------------------
-# Core data containers
-# -----------------------------
-
-
-@dataclass(frozen=True)
-class Leg:
-    """One option leg in a structure."""
-
-    contract_symbol: str
-    right: OptionRight
-    strike: float
-    expiry: str
-    qty: float = 1.0
-
-    # Optional metadata (useful for audit/debug)
-    mid: Optional[float] = None
-    iv: Optional[float] = None
-    ttm: Optional[float] = None
-    moneyness: Optional[float] = None
-
-
-@dataclass(frozen=True)
-class Portfolio:
-    """A simple portfolio of option legs."""
-
-    name: str
-    legs: Tuple[Leg, ...]
-
-    def to_frame(self) -> pd.DataFrame:
-        return pd.DataFrame([{
-            "contractSymbol": l.contract_symbol,
-            "right": l.right,
-            "strike": l.strike,
-            "expiry": l.expiry,
-            "qty": l.qty,
-            "mid": l.mid,
-            "iv": l.iv,
-            "ttm": l.ttm,
-            "moneyness": l.moneyness,
-        } for l in self.legs])
 
 
 # -----------------------------
@@ -118,6 +75,57 @@ def _require_cols(chain: pd.DataFrame, required: Sequence[str]) -> None:
 # -----------------------------
 # Chain selection helpers (anchors)
 # -----------------------------
+
+
+def pick_expiry_closest(
+    expiries: Sequence[object],
+    target_days: int,
+    *,
+    as_of: Optional[object] = None,
+) -> str:
+    """Pick the expiry whose days-to-expiry is closest to `target_days`.
+
+    This is intentionally tolerant to the formats returned by different adapters.
+
+    Parameters
+    ----------
+    expiries:
+        Iterable of expiries. Items may be strings ("YYYY-MM-DD" or other parseable formats),
+        `datetime/date`, or `pandas.Timestamp`.
+    target_days:
+        Target days to expiry (e.g., 30, 60, 90).
+    as_of:
+        Optional anchor date/time. If None, uses the local current date.
+
+    Returns
+    -------
+    str
+        Expiry formatted as "YYYY-MM-DD".
+    """
+
+    # Anchor date
+    anchor = pd.to_datetime(as_of) if as_of is not None else pd.Timestamp.now()
+    anchor = anchor.normalize()
+
+    # Coerce expiries to datetime, dropping unparseable
+    exp_dt = pd.to_datetime(list(expiries), errors="coerce")
+    exp_dt = pd.DatetimeIndex(exp_dt).normalize()
+
+    # Keep only future expiries
+    dte = (exp_dt - anchor).days
+    mask = dte > 0
+    if not mask.any():
+        raise ValueError("No future expiries available to choose from.")
+
+    exp_dt = exp_dt[mask]
+    dte = dte[mask]
+
+    # Choose expiry with minimal |dte - target_days|
+    target = int(target_days)
+    idx = int((pd.Series(dte) - target).abs().idxmin())
+
+    chosen = exp_dt[idx]
+    return chosen.strftime("%Y-%m-%d")
 
 
 def pick_by_moneyness(
@@ -440,11 +448,10 @@ def make_risk_reversal(
 
 
 __all__ = [
-    "Leg",
-    "Portfolio",
     "pick_by_moneyness",
     "pick_atm_strike",
     "pick_by_strike",
+    "pick_expiry_closest",
     "make_atm_straddle",
     "make_vertical_spread",
     "make_collar",

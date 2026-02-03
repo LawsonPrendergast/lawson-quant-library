@@ -18,7 +18,7 @@ from lawson_quant_library.data.yahoo_options import YahooOptionsAdapter
 from lawson_quant_library.parameter.ir_curve import IRCurve
 from lawson_quant_library.parameter.div_curve import DivCurve
 from lawson_quant_library.parameter.vol import EQVol
-from lawson_quant_library.instrument.eq_option import EQOption
+from lawson_quant_library.instrument.option.VanillaOption.eq_option import EQOption
 
 
 def _select_atm_slice(df: pd.DataFrame, n: int) -> pd.DataFrame:

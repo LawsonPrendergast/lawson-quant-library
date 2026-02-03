@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from .instrument import Instrument
+from ..instrument import Instrument
 
 
 @dataclass
@@ -18,11 +18,11 @@ class Option(Instrument):
 
     Product-specific subclasses (EQOption, FXOption, IROption) inherit from this base.
     """
-    strike: float = 0.0
-    maturity_date: Any = None  # leave flexible for now (QL Date, datetime.date, etc.)
+    
+    maturity_date: Any = None  # (QL Date, datetime.date, etc.)
     option_type: str = "call"  # "call" or "put"
     style: str = "European"    # "European" or "American"
-    underlying: str = "Equity" # "Equity" or "FX" (extend later)
+    underlying: str = "Equity" # "Equity" or "FX" (to extend later)
 
     # optional: a string label for engine selection later
     pricing_engine: str = "default"

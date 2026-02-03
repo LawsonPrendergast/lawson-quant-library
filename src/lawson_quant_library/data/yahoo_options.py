@@ -123,7 +123,7 @@ class YahooOptionsAdapter:
         }
 
     # -----------------------------
-    # Contract-level history (the key piece)
+    # Contract-level history
     # -----------------------------
     def list_contracts(
         self,
