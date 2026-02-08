@@ -131,7 +131,7 @@ class YahooOptionsAdapter:
         option_type: OptionType,
         strikes: Optional[Sequence[float]] = None,
     ) -> pd.DataFrame:
-        """Return a dataframe containing at least contractSymbol + strike for an expiry/type."""
+        """Return a dataframe containing at least contract Symbol + strike for an expiry/type."""
         df = self.normalized_chain(expiry, option_type)
         # contractSymbol is the Yahoo option identifier used by yfinance
         if "contractSymbol" not in df.columns:

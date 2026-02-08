@@ -164,12 +164,14 @@ def year_fraction(
 # Python-facing Calendar wrapper
 # ----------------------------
 
-@dataclass
+
 class Calendar:
     """A small wrapper that accepts/returns Python dates while using QuantLib internally."""
 
-    name: str = "US:NYSE"
-    day_count: str = "ACT365F"
+    def __init__(self, name : str, day_count : str):
+
+        self.nameame: str = "US:NYSE"
+        self.day_count: str = "ACT365F"
 
     def _ql_calendar(self) -> Any:
         return get_calendar(self.name)
@@ -266,10 +268,11 @@ class Calendar:
 # Optional: simple tenor parsing
 # ----------------------------
 
-@dataclass(frozen=True)
+
 class Tenor:
-    n: int
-    unit: str  # 'D', 'W', 'M', 'Y'
+    def __init__(self, n : int, unit :str):
+        self.n = n
+        self.unit= unit # 'D', 'W', 'M', 'Y'
 
     def to_ql_period(self) -> Any:
         ql_ = _require_ql()
@@ -285,24 +288,24 @@ class Tenor:
         raise ValueError(f"Invalid tenor unit {self.unit!r}. Expected one of D/W/M/Y")
 
 
-def parse_tenor(value: str) -> Tenor:
-    """Parse a tenor like '1D', '2W', '3M', '5Y' into a Tenor."""
-    if not isinstance(value, str) or len(value.strip()) < 2:
-        raise TypeError("tenor must be a string like '1D', '3M', '5Y'")
+    def parse_tenor(value: str) -> Tenor:
+        """Parse a tenor like '1D', '2W', '3M', '5Y' into a Tenor."""
+        if not isinstance(value, str) or len(value.strip()) < 2:
+            raise TypeError("tenor must be a string like '1D', '3M', '5Y'")
 
-    s = value.strip().upper()
-    unit = s[-1]
-    num = s[:-1]
+        s = value.strip().upper()
+        unit = s[-1]
+        num = s[:-1]
 
-    if unit not in {"D", "W", "M", "Y"}:
-        raise ValueError(f"Invalid tenor unit in {value!r}. Expected one of D/W/M/Y")
+        if unit not in {"D", "W", "M", "Y"}:
+            raise ValueError(f"Invalid tenor unit in {value!r}. Expected one of D/W/M/Y")
 
-    try:
-        n = int(num)
-    except ValueError as e:
-        raise ValueError(f"Invalid tenor number in {value!r}") from e
+        try:
+            n = int(num)
+        except ValueError as e:
+            raise ValueError(f"Invalid tenor number in {value!r}") from e
 
-    if n <= 0:
-        raise ValueError(f"Tenor must be positive. Got {value!r}")
+        if n <= 0:
+            raise ValueError(f"Tenor must be positive. Got {value!r}")
 
-    return Tenor(n=n, unit=unit)
+        return Tenor(n=n, unit=unit)

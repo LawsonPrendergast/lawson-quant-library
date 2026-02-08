@@ -18,7 +18,7 @@ from lawson_quant_library.util import Calendar, evaluation_date, get_calendar, g
 from .parameter import Parameter
 
 
-@dataclass(frozen=True)
+
 class CurvePoint:
     tenor: str
     date: Any

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date, datetime
+from lawson_quant_library.parameter import DivCurve, EQVol, IRCurve
+from lawson_quant_library.util import to_date
+from lawson_quant_library.instrument.option import Option
 from typing import Any, Dict
 
 from QuantLib import (
@@ -16,28 +17,33 @@ from QuantLib import (
     VanillaOption,     
 )
 
-from lawson_quant_library.parameter import DivCurve, EQVol, IRCurve
-from lawson_quant_library.util import to_date
 
 
-@dataclass
-class BlackScholesAnalyticEQModel:
+
+class BlackScholesAnalyticModel:
     """Analytic Black–Scholes–Merton model for European equity options."""
+    def __init__(self, option: Option, **kwargs):
+        self.ir_curve = option.ir_curve
+        self.div_curve = option.div_curve
+        self.vol = option.vol
+        self.spot = option.spot
 
-    spot: float
-    ir_curve: IRCurve
-    div_curve: DivCurve
-    vol: EQVol
-
-    def __post_init__(self) -> None:
         self._spot_quote = SimpleQuote(float(self.spot))
         self._spot_handle = QuoteHandle(self._spot_quote)
+        self._rate_quote = SimpleQuote(self.ir_curve)
+        self._rate_handle = QuoteHandle(self._rate_quote)
+        self._div_quote = SimpleQuote(self.div_curve)
+        self._div_handle = QuoteHandle(self._div_handle)
+        self._vol_quote = SimpleQuote(self.vol)
+        self._vol_handle = QuoteHandle(self._vol_quote)
+
+
 
         self._process = BlackScholesMertonProcess(
             self._spot_handle,
-            self.div_curve.handle,
-            self.ir_curve.handle,
-            self.vol.handle,
+            self._div_handle,
+            self._rate_handle,
+            self._vol_handle,
         )
 
         self._engine = AnalyticEuropeanEngine(self._process)
@@ -47,7 +53,7 @@ class BlackScholesAnalyticEQModel:
         """Update spot without rebuilding the model."""
         self._spot_quote.setValue(float(new_spot))
 
-    def price(self, option: Any, **_: Any) -> float:
+    def price(self, option: Any, **kwargs: Any) -> float:
         ql_opt = self._build_ql_option(option)
         ql_opt.setPricingEngine(self._engine)
         return float(ql_opt.NPV())

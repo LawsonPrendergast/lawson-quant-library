@@ -5,18 +5,13 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 
-@dataclass
+
 class Instrument:
-    # Identity
-    instrument_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    trade_id: Optional[str] = None
+    # base class instrument is used to assign specific random instrument id and notional; allows other reference data to be passed in
 
-    # Common economics / wiring
-    notional: float = 1.0
+    def __init__(self, instrument_id: str, notional: float = 1.0, **kwargs) -> None:
+        self.instrument_id = instrument_id or uuid.uuid4().hex
+        self.notional = notional
+        self.meta = {}
 
-    # Free-form metadata
-    meta: Dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        if self.trade_id is None:
-            self.trade_id = self.instrument_id
+        

@@ -8,7 +8,6 @@ from typing import Any
 class Parameter:
     """Base class for market parameters (curves, vols, etc.)."""
 
-    def __init__(self, name: str | None = None, **attrs: Any) -> None:
+    def __init__(self, name: str, **kwargs) -> None:
         self.name = name
-        for k, v in attrs.items():
-            setattr(self, k, v)
+        

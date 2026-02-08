@@ -6,21 +6,26 @@ from typing import Any, Optional
 from lawson_quant_library.instrument.option.option import Option
 from lawson_quant_library.model.bs_analytic_eq import BlackScholesAnalyticEQModel
 from lawson_quant_library.parameter import DivCurve, EQVol, IRCurve
-from lawson_quant_library.util import Calendar
+from lawson_quant_library.util import Calendar, year_fraction
 
 
-@dataclass
 class EQOption(Option):
+    
     """Equity option (product-specific Option subclass)."""
+    def __init__(
+    self,
+    ir_curve: Optional[IRCurve] = None,
+    div_curve: Optional[DivCurve] = None,
+    vol_surface: Optional[EQVol] = None,
+    spot: Optional[float] = None,
+    calendar: Optional[Calendar] = None,
+    ):
+        self.ir_curve = ir_curve
+        self.div_curve = div_curve
+        self.vol_curve = vol_surface
+        self.spot = spot
+        self.calendar = calendar
 
-    ir_curve: Optional[IRCurve] = None
-    div_curve: Optional[DivCurve] = None
-    vol: Optional[EQVol] = None
-    spot: Optional[float] = None
-    calendar: Optional[Calendar] = None
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
 
         # Default the underlying for this product type.
         if getattr(self, "underlying", None) in (None, ""):

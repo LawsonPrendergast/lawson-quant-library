@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from lawson_quant_library.options.structures import (
+from lawson_quant_library.instrument.option.structures import (
     pick_expiry_closest,
     pick_atm_strike,
     pick_by_moneyness,

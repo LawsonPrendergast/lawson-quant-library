@@ -9,30 +9,34 @@ from lawson_quant_library.instrument.option.option import Option
 from lawson_quant_library.util import Calendar
 
 
-@dataclass
+
 class FXOption(Option):
     """FX option instrument (placeholder; pricing engines to be added)."""
+    
+    def __init__(
+            
+            self,
+            # Underlying / economics
+            spot: Optional[float] = None,
+            strike: float,
+            maturity_date: Optional[Any] = None,
+            option_type: str = "call",  # "call" or "put"
+            style: str = "european", # keep consistent with EQOption usage
 
-    # Underlying / economics
-    spot: Optional[float] = None
-    strike: float
-    maturity_date: Optional[Any] = None
-    option_type: str = "call"  # "call" or "put"
-    style: str = "european"  # keep consistent with EQOption usage
+            # FX specifics
+            domestic_ccy: Optional[str] = None,  # e.g., "USD"
+            foreign_ccy: Optional[str] = None , # e.g., "EUR"
 
-    # FX specifics
-    domestic_ccy: Optional[str] = None  # e.g., "USD"
-    foreign_ccy: Optional[str] = None  # e.g., "EUR"
+            # Market parameters (placeholders)
+            domestic_curve: Optional[Any] = None,
+            foreign_curve: Optional[Any] = None,
+            vol: Optional[Any] = None,
 
-    # Market parameters (placeholders)
-    domestic_curve: Optional[Any] = None
-    foreign_curve: Optional[Any] = None
-    vol: Optional[Any] = None
+            calendar: Optional[Calendar] = None,
 
-    calendar: Optional[Calendar] = None
-
-    # Engine wiring
-    pricing_engine: str = "default"
+            # Engine wiring
+            pricing_engine: str = "default",)
+        :
 
     def __post_init__(self) -> None:
         super().__post_init__()

@@ -33,8 +33,7 @@ class Swap(Instrument):
     # Engine wiring
     pricing_engine: str = "default"
 
-    def __post_init__(self) -> None:
-        super().__post_init__()
+    def __init__(self) -> None:
         if self.calendar is None:
             self.calendar = Calendar()
 

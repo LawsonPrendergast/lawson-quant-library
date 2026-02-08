@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -6,14 +6,11 @@ if TYPE_CHECKING:
     from lawson_quant_library.model.bs_analytic_eq import BlackScholesAnalyticEQModel
     from lawson_quant_library.parameter import IRCurve, EQVol, DivCurve
 
-from lawson_quant_library.instrument.option.fixedstrikeoption.fixed_strike_option import (
-    FixedStrikeOption,
-)
+from lawson_quant_library.instrument.option import Option
 from lawson_quant_library.util import Calendar
 
 
-@dataclass
-class VanillaOption(FixedStrikeOption):
+class VanillaOption(Option):
     """
     Vanilla (fixed-strike) equity option.
 
@@ -21,11 +18,10 @@ class VanillaOption(FixedStrikeOption):
     has a strike and standard attributes like expiry, and optionally
     market inputs such as vol, IR curve, and dividend curve.
     """
-
-    calendar: Calendar
-    vol: "EQVol"
-    ir_curve: "IRCurve"
-    div_curve: "DivCurve"
+    def __init__(self, vol, ir_curve, div_curve, option:Option, **kwargs):
+        self.vol = vol
+        self.ir_curve = ir_curve
+        self.div_curve: "DivCurve"
 
     model: "BlackScholesAnalyticEQModel" | None = None
 

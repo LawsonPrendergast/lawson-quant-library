@@ -10,12 +10,20 @@ from lawson_quant_library.util import Calendar, evaluation_date, get_calendar, g
 from .parameter import Parameter
 
 
-@dataclass(frozen=True)
+
 class CurvePoint:
-    tenor: str
-    date: Any
-    discount_factor: float
-    zero_rate: float
+    def __init__(
+    self,
+    tenor: str,
+    date: Any,
+    discount_factor: float,
+    zero_rate: float,
+    ):
+        self.tenor = tenor
+        self.date = date
+        self.discount_factor = discount_factor
+        self.zero_rate = zero_rate
+
 
 
 class DivCurve(Parameter):
