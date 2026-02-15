@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import QuantLib as ql
 
-from lawson_quant_library.util import Calendar, Tenor
+from lawson_quant_library.util import Calendar, parse_tenor, Tenor, to_ql_date
 from .parameter import Parameter
 
 
@@ -55,8 +54,8 @@ class IRCurve(Parameter):
         self.settlement_days = int(settlement_days)
         self.interpolation = interpolation
 
-        self._calendar = get_calendar(calendar)
-        self._day_count = get_day_count(day_count)
+        self._calendar = calendar
+        self._day_count = calendar._ql_day_count()
 
         # Curve state
         self._handle = ql.RelinkableYieldTermStructureHandle()
@@ -70,10 +69,9 @@ class IRCurve(Parameter):
     def handle(self) -> ql.YieldTermStructureHandle:
         return self._handle
 
-    def set_flat_rate(self, rate: float, *, reference_date: Any | None = None) -> None:
+    def set_flat_rate(self, rate: float ) -> None:
         r = float(rate)
-        today = evaluation_date(reference_date)
-        curve = ql.FlatForward(self.settlement_days, self._calendar, r, self._day_count)
+        curve = ql.FlatForward(self.settlement_days, self._calendar._ql_calendar(), r, self._calendar._ql_day_count())
 
         self._curve = curve
         self._helpers = []
@@ -83,7 +81,7 @@ class IRCurve(Parameter):
 
     def set_deposit_quotes(self, quotes: Dict[str, float], *, reference_date: Any) -> None:
         """(Re)build the curve from deposit quotes."""
-        cal = self._calendar
+        cal = self._calendar._ql_calendar()
         day_count = self._day_count
 
         # evaluation date is assumed already set externally (or defaults inside QL)
@@ -115,7 +113,7 @@ class IRCurve(Parameter):
             helpers.append(helper)
 
         # Build a discount curve (first pass)
-        today = evaluation_date(reference_date)
+        today = to_ql_date(reference_date)
 
         curve = ql.PiecewiseLogLinearDiscount(today, helpers, day_count)
         curve.enableExtrapolation()
@@ -164,7 +162,7 @@ class IRCurve(Parameter):
 
     def table(
         self,
-        tenors: Iterable[str],
+        tenors: Iterable[Tenor],
         *,
         reference_date: Any | None = None,
     ) -> List[CurvePoint]:
@@ -172,8 +170,8 @@ class IRCurve(Parameter):
         out: List[CurvePoint] = []
 
         for t in tenors:
-            period = parse_tenor(t).to_ql_period()
-            d = self._calendar.advance(ref, period)
+            period = t.to_ql_period()
+            d = self._calendar._ql_calendar().advance(ref, period)
             df = float(self.handle().discount(d))
             zr = float(self.handle().zeroRate(d, self._day_count, ql.Continuous, ql.Annual).rate())
             out.append(CurvePoint(tenor=str(t).upper(), date=d, discount_factor=df, zero_rate=zr))
