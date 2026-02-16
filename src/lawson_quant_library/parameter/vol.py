@@ -33,7 +33,7 @@ class EQVol(Parameter):
         self._handle = ql.RelinkableBlackVolTermStructureHandle()
         self._vol = None
 
-    @property
+    
     def handle(self) -> ql.BlackVolTermStructureHandle:
         return self._handle
 

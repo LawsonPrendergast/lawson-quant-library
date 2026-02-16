@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Literal, Optional, Sequence, Tuple, Union
 
@@ -11,13 +10,15 @@ import yfinance as yf
 OptionType = Literal["call", "put"]
 
 
-@dataclass(frozen=True)
+
 class OptionChainSnapshot:
-    ticker: str
-    expiry: pd.Timestamp
-    as_of: pd.Timestamp
-    calls: pd.DataFrame
-    puts: pd.DataFrame
+    def __init__(self, ticker:str, expry:pd.Timestamp, as_of:pd.Timestamp, calls:pd.DataFrame, puts:pd.DataFrame):
+    
+        self.ticker = ticker
+        self.expiry = expry
+        self.as_of = as_of
+        self.calls = calls
+        self.puts = puts
 
 
 class YahooOptionsAdapter:
@@ -32,7 +33,7 @@ class YahooOptionsAdapter:
       history; you must choose which contracts to track (e.g., today’s chain) and build
       your own store.
 
-    This file implements the practical approach you asked for:
+    This file implements the practical approach
     - Pull current chain(s) -> get contractSymbol list
     - For each contractSymbol, pull .history() and store locally (parquet)
     - Later, build “as-of” pseudo-chains from the stored contract histories
@@ -114,13 +115,9 @@ class YahooOptionsAdapter:
         puts = puts.copy()
         calls["as_of"] = as_of_ts
         puts["as_of"] = as_of_ts
-        return {
-            "ticker": self.ticker,
-            "expiry": expiry,
-            "as_of": as_of_ts,
-            "calls": calls,
-            "puts": puts,
-        }
+        return OptionChainSnapshot(ticker=self.ticker, expry=pd.to_datetime(expiry), as_of=as_of_ts, calls=calls, puts=puts)
+        
+
 
     # -----------------------------
     # Contract-level history

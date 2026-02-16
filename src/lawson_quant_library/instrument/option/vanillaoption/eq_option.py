@@ -4,68 +4,46 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from lawson_quant_library.instrument.option.option import Option
-from lawson_quant_library.model.bs_analytic_eq import BlackScholesAnalyticEQModel
+from lawson_quant_library.model.bs_analytic_eq import BlackScholesAnalyticModel
 from lawson_quant_library.parameter import DivCurve, EQVol, IRCurve
 from lawson_quant_library.util import Calendar, year_fraction
 
 
 class EQOption(Option):
-    
     """Equity option (product-specific Option subclass)."""
     def __init__(
     self,
+    maturity_date,
+    strike,
+    option_type,
+    style,
+    underlying = 'Equity',
+    model = 'bs_analytic',
     ir_curve: Optional[IRCurve] = None,
     div_curve: Optional[DivCurve] = None,
     vol_surface: Optional[EQVol] = None,
     spot: Optional[float] = None,
-    calendar: Optional[Calendar] = None,
+    calendar: Calendar = Calendar('US:NYSE', '365F'),
     ):
+        super().__init__(maturity_date, option_type, strike, style, underlying)
         self.ir_curve = ir_curve
         self.div_curve = div_curve
         self.vol_curve = vol_surface
         self.spot = spot
         self.calendar = calendar
+        self.model = model
 
-
-        # Default the underlying for this product type.
-        if getattr(self, "underlying", None) in (None, ""):
-            self.underlying = "Equity"
 
         if self.underlying not in {"Equity", "EQ"}:
             raise ValueError(
                 f"EQOption requires underlying='Equity' (or 'EQ'); got {self.underlying!r}"
             )
 
-        # Normalize engine naming: treat "default" as the first supported engine.
-        if getattr(self, "pricing_engine", "default") == "default":
-            self.pricing_engine = "bs_analytic"
 
-        if self.calendar is None:
-            self.calendar = Calendar()
 
-    def _maybe_build_default_model(self) -> Optional[Any]:
-        # Only build for the supported engine.
-        engine = str(getattr(self, "pricing_engine", "bs_analytic")).lower()
-        if engine == "default":
-            engine = "bs_analytic"
-        if engine != "bs_analytic":
-            return None
 
         # Only build if market inputs are present; do not raise here.
-        if (
-            self.spot is None
-            or self.ir_curve is None
-            or self.div_curve is None
-            or self.vol is None
-        ):
-            return None
 
-        return BlackScholesAnalyticEQModel(
-            spot=float(self.spot),
-            ir_curve=self.ir_curve,
-            div_curve=self.div_curve,
-            vol=self.vol,
-        )
 
     # --- quality-of-life helpers ---
     def set_market(
@@ -89,9 +67,7 @@ class EQOption(Option):
             self.calendar = calendar
 
         # Normalize alias and clear model so it can be rebuilt on demand.
-        if getattr(self, "pricing_engine", "default") == "default":
-            self.pricing_engine = "bs_analytic"
-        self.model = None
+        
 
     def validate_market(self) -> None:
         missing = []
@@ -134,7 +110,7 @@ class EQOption(Option):
             tmp_vol = EQVol(currency=getattr(self.vol, "currency", "USD"))
             tmp_vol.set_flat_vol(float(sigma), reference_date=reference_date)
 
-            tmp_model = BlackScholesAnalyticEQModel(
+            tmp_model = BlackScholesAnalyticModel(
                 spot=float(self.spot),
                 ir_curve=self.ir_curve,
                 div_curve=self.div_curve,
@@ -157,16 +133,12 @@ class EQOption(Option):
 
         raise RuntimeError("Implied vol solver failed to converge")
 
-    def set_pricing_engine(self, pricing_engine: str) -> None:
-        """Set pricing engine by string and clear model so it can be rebuilt on demand."""
-        # If Option defines a base setter, use it.
-        try:
-            super().set_pricing_engine(pricing_engine)  # type: ignore[misc]
-        except Exception:
-            self.pricing_engine = str(pricing_engine).lower()
+    def set_model(self, model: str) -> None:
+        """Set pricing model by string and clear model so it can be rebuilt on demand."""
+        # If Option defines a base setter, use it.)
 
-        if getattr(self, "pricing_engine", "default") == "default":
+        if getattr(self, "model", "default") == "default":
             self.pricing_engine = "bs_analytic"
 
         # Force rebuild on next pricing call.
-        self.model = None
+        self.model = model

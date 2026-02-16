@@ -21,11 +21,10 @@ class VanillaOption(Option):
     def __init__(self, vol, ir_curve, div_curve, option:Option, **kwargs):
         self.vol = vol
         self.ir_curve = ir_curve
-        self.div_curve: "DivCurve"
+        self.div_curve = div_curve
 
-    model: "BlackScholesAnalyticEQModel" | None = None
+        model: "BlackScholesAnalyticEQModel" | None = None
 
-    def __post_init__(self) -> None:
         super().__post_init__()  # runs FixedStrikeOption + Option base logic
 
         # Option-specific checks
