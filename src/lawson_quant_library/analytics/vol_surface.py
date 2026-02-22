@@ -18,15 +18,11 @@ from lawson_quant_library.data.yahoo_options import YahooOptionsAdapter
 from lawson_quant_library.parameter.ir_curve import IRCurve
 from lawson_quant_library.parameter.div_curve import DivCurve
 from lawson_quant_library.parameter.vol import EQVol
-from lawson_quant_library.instrument.option.vanilla_option import EQOption
+from lawson_quant_library.instrument.option import EQOption
 
 
-def _select_atm_slice(df: pd.DataFrame, n: int) -> pd.DataFrame:
-    """Return the n rows with moneyness closest to 1.0 (ATM-ish slice).
-
-    We start with an ATM-focused slice because Newton IV solves are most stable
-    when vega is not tiny.
-    """
+def _select_moneyness_slice(df: pd.DataFrame, n: int) -> pd.DataFrame:
+    '''Return the options across moneyness'''
     return (
         df.sort_values(by="moneyness", key=lambda s: (s - 1).abs())
         .head(n)

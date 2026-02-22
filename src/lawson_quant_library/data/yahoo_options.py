@@ -3,7 +3,11 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Literal, Optional, Sequence, Tuple, Union
-
+from lawson_quant_library.instrument.option.eq_option import EQOption
+from lawson_quant_library.model.bs_analytic_eq import BlackScholesAnalyticModel
+from lawson_quant_library.parameter.ir_curve import IRCurve
+from lawson_quant_library.parameter.div_curve import DivCurve
+from lawson_quant_library.util import Calendar, to_ql_date
 import pandas as pd
 import yfinance as yf
 
@@ -100,6 +104,35 @@ class YahooOptionsAdapter:
         if hist is None or hist.empty:
             raise RuntimeError(f"Unable to fetch spot for {self.ticker}")
         return float(hist["Close"].iloc[-1])
+
+    def with_delta(self, df: pd.DataFrame, rate: float, div: float = 0.0) -> pd.DataFrame:
+            out = df.copy()
+            ivs = []
+            deltas = []
+            spot = self.spot()
+            cal = Calendar('US:NYSE', 'ACT365F')
+            rate_curve = IRCurve(rate, cal)
+            div_curve = DivCurve(div, cal)
+            as_of = pd.to_datetime(out['as_of'].iloc[0]).date()
+            spot = float(spot)
+            with cal.evaluation_date(as_of):
+                for _, row in out.iterrows():
+
+                    strike = row['strike']
+                    expiry = row['expiry']
+                    mid_price = row['mid']
+                    opt_type = row['type']
+                    opt = EQOption(expiry, strike, opt_type, style='European', spot=spot, ir_curve=rate_curve, div_curve=div_curve, model='bs_analytic')
+                    iv = opt.implied_vol(mid_price, reference_date=as_of)
+                    ivs.append(iv)
+
+                    model=BlackScholesAnalyticModel(opt, vol=iv)
+                    delta = model.delta(opt)
+                    deltas.append(delta)
+            out['iv'] = ivs
+            out['delta'] = deltas
+            return out
+
 
     def snapshot(self, expiry: str, as_of: Optional[Union[str, pd.Timestamp]] = None, add_analytics: bool = True):
         calls = self.normalized_chain(expiry, "call")

@@ -50,7 +50,6 @@ class DivCurve(Parameter):
         self._curve = ql.FlatForward(today, self.q, self._day_count)
         self._handle.linkTo(self._curve)
 
-    @property
     def handle(self) -> ql.YieldTermStructureHandle:
         return self._handle
 

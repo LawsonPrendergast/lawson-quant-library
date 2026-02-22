@@ -12,7 +12,7 @@ The key design goal: keep notebooks thin and keep reusable aggregation logic her
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+
 from typing import Dict, Iterable, List, Literal, Optional, Sequence, Tuple
 
 import pandas as pd
@@ -20,7 +20,6 @@ import pandas as pd
 OptionRight = Literal["call", "put"]
 
 
-@dataclass(frozen=True)
 class Leg:
     """One leg in a portfolio."""
 
@@ -37,7 +36,7 @@ class Leg:
     moneyness: Optional[float] = None
 
 
-@dataclass(frozen=True)
+
 class Portfolio:
     """A simple portfolio of legs."""
 

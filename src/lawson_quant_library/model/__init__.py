@@ -1,3 +1,3 @@
-from .bs_analytic_eq import BlackScholesAnalyticEQModel
+from .bs_analytic_eq import BlackScholesAnalyticModel
 
-__all__ = ["BlackScholesAnalyticEQModel"]
+__all__ = ["BlackScholesAnalyticModel"]

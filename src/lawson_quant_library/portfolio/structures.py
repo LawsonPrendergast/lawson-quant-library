@@ -37,17 +37,6 @@ OptionRight = Literal["call", "put"]
 # Column normalization helpers
 # -----------------------------
 
-
-_DEFAULT_COLS: Dict[str, str] = {
-    "symbol": "contractSymbol",
-    "strike": "strike",
-    "right": "optionType",  # will also look for type/right
-    "mid": "mid",
-    "moneyness": "moneyness",
-    "ttm": "ttm",
-}
-
-
 def _infer_right_col(chain: pd.DataFrame, cols: Dict[str, str]) -> str:
     """Infer which column holds call/put indicator."""
     # User override

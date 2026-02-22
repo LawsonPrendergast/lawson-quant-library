@@ -1,20 +1,18 @@
 from __future__ import annotations
 
-from lawson_quant_library.parameter import DivCurve, EQVol, IRCurve
-from lawson_quant_library.util import to_date
-from lawson_quant_library.instrument.option import Option
+from lawson_quant_library.util import to_date, Calendar
 from typing import Any, Dict
-
+from datetime import date
+from lawson_quant_library.instrument.option.option import Option
 from QuantLib import (
     AnalyticEuropeanEngine,
     BlackScholesMertonProcess,
     Date as QLDate,
-    EuropeanExercise,
-    Option,              
+    EuropeanExercise,              
     PlainVanillaPayoff,
     QuoteHandle,
     SimpleQuote,
-    VanillaOption,     
+    VanillaOption,    
 )
 
 
@@ -22,7 +20,7 @@ from QuantLib import (
 
 class BlackScholesAnalyticModel:
     """Analytic Black–Scholes–Merton model for European equity options."""
-    def __init__(self, option: Option, **kwargs):
+    def __init__(self, option: any, **kwargs):
         self.ir_curve = option.ir_curve
         self.div_curve = option.div_curve
         self.vol = option.vol
@@ -30,20 +28,18 @@ class BlackScholesAnalyticModel:
 
         self._spot_quote = SimpleQuote(float(self.spot))
         self._spot_handle = QuoteHandle(self._spot_quote)
-        self._rate_quote = SimpleQuote(self.ir_curve)
-        self._rate_handle = QuoteHandle(self._rate_quote)
-        self._div_quote = SimpleQuote(self.div_curve)
-        self._div_handle = QuoteHandle(self._div_handle)
-        self._vol_quote = SimpleQuote(self.vol)
-        self._vol_handle = QuoteHandle(self._vol_quote)
+        rf_handle = self.ir_curve.handle
+        div_handle = self.div_curve.handle
+        vol_handle = self.vol.handle
+        
 
 
 
         self._process = BlackScholesMertonProcess(
             self._spot_handle,
-            self._div_handle,
-            self._rate_handle,
-            self._vol_handle,
+            self.div_handle,
+            self.rf_handle,
+            self.vol_handle,
         )
 
         self._engine = AnalyticEuropeanEngine(self._process)
@@ -53,16 +49,20 @@ class BlackScholesAnalyticModel:
         """Update spot without rebuilding the model."""
         self._spot_quote.setValue(float(new_spot))
 
-    def price(self, option: Any, **kwargs: Any) -> float:
+    def price(self, option: Option, **kwargs: Any) -> float:
         ql_opt = self._build_ql_option(option)
         ql_opt.setPricingEngine(self._engine)
         return float(ql_opt.NPV())
 
-    def vega(self, option: Any, **_: Any) -> float:
+    def vega(self, option: Option, **_: Any) -> float:
         """Return option vega (dPrice/dVol). Convenience wrapper around `greeks()`."""
         return float(self.greeks(option).get("vega", 0.0))
-
-    def greeks(self, option: Any, **_: Any) -> Dict[str, float]:
+    
+    def delta(self, option: Option, **_: Any) -> float:
+        """Return option delat (dPrice/dspot). Convenience wrapper around `greeks()`."""
+        return float(self.greeks(option).get("delta", 0.0))
+    
+    def greeks(self, option: Option, **_: Any) -> Dict[str, float]:
         ql_opt = self._build_ql_option(option)
         ql_opt.setPricingEngine(self._engine)
 
@@ -75,7 +75,7 @@ class BlackScholesAnalyticModel:
         }
 
     # ---- internal helpers ----
-    def _build_ql_option(self, option: Any) -> VanillaOption:
+    def _build_ql_option(self, option: Option) -> VanillaOption:
         if getattr(option, "style", "European") != "European":
             raise ValueError(
                 "BlackScholesAnalyticEQModel only supports European options. "
