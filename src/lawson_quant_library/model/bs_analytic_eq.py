@@ -4,6 +4,7 @@ from lawson_quant_library.util import to_date, Calendar
 from typing import Any, Dict
 from datetime import date
 from lawson_quant_library.instrument.option.option import Option
+import QuantLib as ql
 from QuantLib import (
     AnalyticEuropeanEngine,
     BlackScholesMertonProcess,
@@ -28,18 +29,18 @@ class BlackScholesAnalyticModel:
 
         self._spot_quote = SimpleQuote(float(self.spot))
         self._spot_handle = QuoteHandle(self._spot_quote)
-        rf_handle = self.ir_curve.handle
-        div_handle = self.div_curve.handle
-        vol_handle = self.vol.handle
+        rf_handle = self.ir_curve.handle()
+        div_handle = self.div_curve.handle()
+        vol_handle = self.vol.handle()
         
 
 
 
         self._process = BlackScholesMertonProcess(
             self._spot_handle,
-            self.div_handle,
-            self.rf_handle,
-            self.vol_handle,
+            div_handle,
+            rf_handle,
+            vol_handle,
         )
 
         self._engine = AnalyticEuropeanEngine(self._process)
@@ -89,7 +90,7 @@ class BlackScholesAnalyticModel:
         opt_type = str(getattr(option, "option_type")).lower()
         if opt_type not in {"call", "put"}:
             raise ValueError(f"option_type must be 'call' or 'put'. Got {opt_type!r}.")
-        ql_type = Option.Call if opt_type == "call" else Option.Put
+        ql_type = ql.Option.Call if opt_type == "call" else ql.Option.Put
 
         payoff = PlainVanillaPayoff(ql_type, strike)
         exercise = EuropeanExercise(maturity)

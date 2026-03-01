@@ -7,6 +7,7 @@ from lawson_quant_library.instrument.option.eq_option import EQOption
 from lawson_quant_library.model.bs_analytic_eq import BlackScholesAnalyticModel
 from lawson_quant_library.parameter.ir_curve import IRCurve
 from lawson_quant_library.parameter.div_curve import DivCurve
+from lawson_quant_library.parameter.vol import EQVol
 from lawson_quant_library.util import Calendar, to_ql_date
 import pandas as pd
 import yfinance as yf
@@ -93,6 +94,8 @@ class YahooOptionsAdapter:
             (out.get("openInterest", 0) >= min_oi)
             & (out.get("volume", 0) >= min_volume)
             & (out.get("mid", 0) > 0)
+            & (out.get('ttm') > 0)
+            & (out.get("impliedVolatility") >0 )
         )
         return out.loc[filtered]
 
@@ -105,16 +108,28 @@ class YahooOptionsAdapter:
             raise RuntimeError(f"Unable to fetch spot for {self.ticker}")
         return float(hist["Close"].iloc[-1])
 
-    def with_delta(self, df: pd.DataFrame, rate: float, div: float = 0.0) -> pd.DataFrame:
+    def with_delta(
+        self,
+        df: pd.DataFrame,
+        as_of: Union[str, pd.Timestamp],
+        rate: float,
+        div: float = 0.0,
+    ) -> pd.DataFrame:
             out = df.copy()
-            ivs = []
+            #ivs = []
             deltas = []
             spot = self.spot()
             cal = Calendar('US:NYSE', 'ACT365F')
-            rate_curve = IRCurve(rate, cal)
-            div_curve = DivCurve(div, cal)
-            as_of = pd.to_datetime(out['as_of'].iloc[0]).date()
+            as_of = pd.to_datetime(as_of).date()
             spot = float(spot)
+
+            # Build flat rate and dividend curves so QuantLib handles are initialized
+            rate_curve = IRCurve(rate, cal)
+            rate_curve.set_flat_rate(rate)
+
+            div_curve = DivCurve(div, cal)
+            div_curve.set_div(div)
+
             with cal.evaluation_date(as_of):
                 for _, row in out.iterrows():
 
@@ -122,14 +137,24 @@ class YahooOptionsAdapter:
                     expiry = row['expiry']
                     mid_price = row['mid']
                     opt_type = row['type']
-                    opt = EQOption(expiry, strike, opt_type, style='European', spot=spot, ir_curve=rate_curve, div_curve=div_curve, model='bs_analytic')
+                    tmp_vol = row['impliedVolatility']
+                    vol = EQVol()
+                    vol.set_flat_vol(tmp_vol, reference_date=as_of)
+
+                    '''tmp_vol = EQVol()
+                    tmp_vol.set_flat_vol(0.20, reference_date=as_of)
+                    opt = EQOption(expiry, strike, opt_type, style='European', spot=spot, ir_curve=rate_curve, div_curve=div_curve, vol_surface=tmp_vol, model='bs_analytic')
+                    print(BlackScholesAnalyticModel(opt).vega, strike, spot, row['impliedVolatility'])
                     iv = opt.implied_vol(mid_price, reference_date=as_of)
                     ivs.append(iv)
 
-                    model=BlackScholesAnalyticModel(opt, vol=iv)
+                    # Wrap implied vol (float) into a flat vol surface object
+                    tmp_vol = opt.vol'''
+                    opt = EQOption(expiry, strike, opt_type, style='European', spot=spot, ir_curve=rate_curve, div_curve=div_curve, vol_surface=vol, model='bs_analytic')
+                    model = BlackScholesAnalyticModel(opt)
                     delta = model.delta(opt)
                     deltas.append(delta)
-            out['iv'] = ivs
+            #out['iv'] = ivs
             out['delta'] = deltas
             return out
 

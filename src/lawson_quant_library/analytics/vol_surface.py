@@ -18,17 +18,66 @@ from lawson_quant_library.data.yahoo_options import YahooOptionsAdapter
 from lawson_quant_library.parameter.ir_curve import IRCurve
 from lawson_quant_library.parameter.div_curve import DivCurve
 from lawson_quant_library.parameter.vol import EQVol
-from lawson_quant_library.instrument.option import EQOption
+from lawson_quant_library.instrument.option.eq_option import EQOption
+from lawson_quant_library.util import Calendar
 
-
-def _select_moneyness_slice(df: pd.DataFrame, n: int) -> pd.DataFrame:
+def select_moneyness_slice(df: pd.DataFrame, n: int) -> pd.DataFrame:
     '''Return the options across moneyness'''
     return (
         df.sort_values(by="moneyness", key=lambda s: (s - 1).abs())
         .head(n)
         .copy()
     )
+    
+def ttm_to_tenor(ttm: float) -> str:
+    """
+    Map time-to-maturity in years to standardized tenor buckets.
+    """
+    days = float(ttm) * 365.0
+    if days <= 2:
+        return "1D"
+    if days <= 10:
+        return "1W"
+    if days <= 40:
+        return "1M"
+    if days <= 120:
+        return "3M"
+    if days <= 240:
+        return "6M"
+    return "1Y"
 
+
+def bucket_moneyness(df: pd.DataFrame, targets: list[float]) -> pd.DataFrame:
+    """
+    Select the nearest option to each target moneyness bucket and stamp the bucket label
+    (so columns are exactly the targets, not rounded values from the chain).
+    """
+    out = df.copy()
+    out["moneyness"] = pd.to_numeric(out["moneyness"], errors="coerce")
+    out = out[pd.notna(out["moneyness"])].copy()
+    if out.empty:
+        return out
+
+    selected = []
+    for m in targets:
+        idx = (out["moneyness"] - float(m)).abs().idxmin()
+        row = out.loc[idx].copy()
+        row["bucket"] = float(m)  # force bucket label to the target
+        selected.append(row)
+
+    res = pd.DataFrame(selected)
+
+    # If sparse strikes cause two targets to hit the same option, keep one per bucket
+    if not res.empty and "bucket" in res.columns and "moneyness" in res.columns:
+        res["bucket_dist"] = (res["moneyness"] - res["bucket"]).abs()
+        res = (
+            res.sort_values(["bucket", "bucket_dist"])
+               .drop_duplicates(subset=["bucket"], keep="first")
+               .drop(columns=["bucket_dist"])
+               .copy()
+        )
+
+    return res
 
 def build_surface_points_from_adapter(
     adapter: Any,
@@ -41,7 +90,7 @@ def build_surface_points_from_adapter(
     option_type: str = "call",
     expiries: list[Any] | None = None,
     n_expiries: int = 4,
-    n_atm: int = 30,
+    moneyness_targets: list[float] | None = None,
 ) -> pd.DataFrame:
     """Build implied vol surface points using a provided options data adapter.
 
@@ -59,13 +108,11 @@ def build_surface_points_from_adapter(
     else:
         expiries_to_use = adapter.expiries()[:n_expiries]
 
-    # Create flat market objects (IR, div, base vol) ONCE per ticker
-    ir_curve = IRCurve(rate=r, currency="USD")
-    # Dividend curve has no currency attribute by design
-    div_curve = DivCurve(div_yield=q)
-    base_vol = EQVol(currency="USD")
-
     rows: list[dict[str, Any]] = []
+
+    if moneyness_targets is None:
+        # Bloomberg-style equity display buckets (K/Spot)
+        moneyness_targets = [0.8, 0.9, 1.0, 1.1, 1.2]
 
     for exp in expiries_to_use:
         # a) Pull chain for this expiry
@@ -75,49 +122,65 @@ def build_surface_points_from_adapter(
         df = adapter.with_time_to_expiry(df, as_of)
         df = adapter.with_moneyness(df, spot)
 
-        # c) Basic sanity filters
-        df = df[(df["ttm"] > 0) & (df["mid"] > 0)].copy()
-        if df.empty:
-            continue
+        if "moneyness" in df.columns:
+            df["moneyness"] = pd.to_numeric(df["moneyness"], errors="coerce")
 
-        # d) Focus on an ATM-ish slice for solver stability
-        df = _select_atm_slice(df, n_atm)
+        # Use Yahoo-provided IVs directly (no solver)
+        if "impliedVolatility" in df.columns:
+            df["impliedVolatility"] = pd.to_numeric(df["impliedVolatility"], errors="coerce")
 
-        for _, r0 in df.iterrows():
-            strike = float(r0["strike"])
-            maturity_date = pd.to_datetime(r0["expiry"])
-            price = float(r0["mid"])
-            ttm = float(r0["ttm"])
-            mny = float(r0["moneyness"])
+        df = df[(df["ttm"].notna()) & (df["strike"].notna()) & (df["ttm"] > 0)].copy()
+        if "impliedVolatility" in df.columns:
+            df = df[df["impliedVolatility"].notna() & (df["impliedVolatility"] > 0)].copy()
 
-            opt = EQOption(
-                strike=strike,
-                maturity_date=maturity_date,
-                option_type=option_type,
-            )
-            opt.set_market(
-                spot=spot,
-                ir_curve=ir_curve,
-                div_curve=div_curve,
-                vol=base_vol,
-            )
+            # Tenor buckets (row index)
+            df["tenor"] = df["ttm"].apply(ttm_to_tenor)
 
-            try:
-                iv = float(
-                    opt.implied_vol(
-                        target_price=price,
-                        reference_date=as_of,
-                        initial_vol=0.30,
-                    )
-                )
-            except Exception:
+            # Moneyness buckets (column labels)
+            df = bucket_moneyness(df, moneyness_targets)
+            if df.empty:
                 continue
 
+        for _, r0 in df.iterrows():
+            ttm = float(r0["ttm"])
+            mny = float(r0["moneyness"]) if "moneyness" in r0 and pd.notna(r0["moneyness"]) else float("nan")
+            iv = float(r0["impliedVolatility"]) if "impliedVolatility" in r0 and pd.notna(r0["impliedVolatility"]) else float("nan")
+            if pd.isna(iv) or iv <= 0:
+                continue
+
+            bucket = float(r0.get("bucket", mny)) if pd.notna(r0.get("bucket", pd.NA)) else float("nan")
+            tenor = str(r0.get("tenor", ttm_to_tenor(ttm)))
             rows.append(
-                {"ticker": ticker, "expiry": exp, "ttm": ttm, "moneyness": mny, "iv": iv}
+                {
+                    "ticker": ticker,
+                    "tenor": tenor,
+                    "bucket": bucket,
+                    "iv": iv,
+                    "expiry": exp,
+                    "ttm": ttm,
+                    "moneyness": mny,
+                }
             )
 
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    if out.empty:
+        return out
+
+    surface = out.pivot_table(
+        index="tenor",
+        columns="bucket",
+        values="iv",
+        aggfunc="mean",
+    )
+
+    # enforce consistent column set/order
+    surface = surface.reindex(columns=moneyness_targets)
+
+    # enforce a sensible tenor order if present
+    tenor_order = ["1D", "1W", "1M", "3M", "6M", "1Y"]
+    surface = surface.reindex(index=[t for t in tenor_order if t in surface.index])
+
+    return surface
 
 
 def build_surface_points_yahoo(
@@ -128,7 +191,6 @@ def build_surface_points_yahoo(
     q: float = 0.0,
     option_type: str = "call",
     n_expiries: int = 4,
-    n_atm: int = 30,
 ) -> pd.DataFrame:
     """Yahoo-specific convenience wrapper around `build_surface_points_from_adapter`."""
     adapter = YahooOptionsAdapter(ticker)
@@ -144,7 +206,6 @@ def build_surface_points_yahoo(
         option_type=option_type,
         expiries=expiries,
         n_expiries=n_expiries,
-        n_atm=n_atm,
     )
 
 

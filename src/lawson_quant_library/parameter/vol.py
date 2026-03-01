@@ -18,7 +18,7 @@ class EQVol(Parameter):
         self,
         *,
         name: Optional[str] = None,
-        currency: str,
+        currency: str = None,
         calendar: str = "TARGET",
         day_count: str = "ACT365F",
     ) -> None:

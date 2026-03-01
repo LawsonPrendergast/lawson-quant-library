@@ -94,6 +94,20 @@ class EQOption(Option):
             tmp_vol = EQVol(currency=getattr(self.vol, "currency", "USD"))
             tmp_vol.set_flat_vol(float(sigma), reference_date=reference_date)
 
+            print("IRCurve:", self.ir_curve)
+            print("IRCurve handle:", getattr(self.ir_curve, "handle", None))
+            if self.ir_curve and self.ir_curve.handle() is not None:
+                print("IRCurve QuantLib object:", self.ir_curve.handle())
+            else:
+                raise ValueError("ir_curve is not built — handle() is None")
+
+            print("DivCurve:", self.div_curve)
+            print("DivCurve handle:", getattr(self.div_curve, "handle", None))
+            if self.div_curve and self.div_curve.handle() is not None:
+                print("DivCurve QuantLib object:", self.div_curve.handle())
+            else:
+                raise ValueError("div_curve is not built — handle() is None")
+
             tmp_model = BlackScholesAnalyticModel(self,
                 spot=float(self.spot),
                 ir_curve=self.ir_curve,

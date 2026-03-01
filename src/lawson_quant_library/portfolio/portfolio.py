@@ -17,17 +17,17 @@ from typing import Dict, Iterable, List, Literal, Optional, Sequence, Tuple
 
 import pandas as pd
 
-OptionRight = Literal["call", "put"]
 
 
 class Leg:
     """One leg in a portfolio."""
-
-    contract_symbol: str
-    right: OptionRight
-    strike: float
-    expiry: str
-    qty: float = 1.0
+    def __init__(self, contract_symbol: str, option_type: str, strike: float, expiry: str, qty: float = 1.0, **kwargs):
+    
+        self.contract_symbol = contract_symbol
+        self.right = option_type
+        self.strike = strike
+        self.expiry = expiry
+        self.qty = qty
 
     # Optional metadata (useful for auditing / debug, not required)
     mid: Optional[float] = None
@@ -39,9 +39,10 @@ class Leg:
 
 class Portfolio:
     """A simple portfolio of legs."""
-
-    name: str
-    legs: Tuple[Leg, ...]
+    def __init__(self, name: str, legs: tuple):
+        self.name = name
+        self.legs = legs
+        
 
     # ---------- convenience ----------
 
@@ -116,6 +117,3 @@ class Portfolio:
                 out[k] += float(l.qty) * float(g.get(k, 0.0))
 
         return out
-
-
-__all__ = ["Leg", "Portfolio", "OptionRight"]

@@ -29,36 +29,10 @@ import numpy as np
 import pandas as pd
 
 from lawson_quant_library.portfolio.portfolio import Leg, Portfolio
-
-OptionRight = Literal["call", "put"]
-
-
-# -----------------------------
-# Column normalization helpers
-# -----------------------------
-
-def _infer_right_col(chain: pd.DataFrame, cols: Dict[str, str]) -> str:
-    """Infer which column holds call/put indicator."""
-    # User override
-    if cols.get("right") in chain.columns:
-        return cols["right"]
-
-    for c in ("optionType", "type", "right"):
-        if c in chain.columns:
-            return c
-
-    raise ValueError("Could not infer option right column (call/put).")
+''
 
 
-def _standardize_right(series: pd.Series) -> pd.Series:
-    s = series.astype(str).str.lower().str.strip()
-    return s.replace({"c": "call", "p": "put"})
 
-
-def _require_cols(chain: pd.DataFrame, required: Sequence[str]) -> None:
-    missing = [c for c in required if c not in chain.columns]
-    if missing:
-        raise ValueError(f"Chain missing required columns: {missing}")
 
 
 # -----------------------------
@@ -120,26 +94,18 @@ def pick_expiry_closest(
 def pick_by_moneyness(
     chain: pd.DataFrame,
     *,
-    right: OptionRight,
+    option_type: str,
     target_moneyness: float,
-    cols: Optional[Dict[str, str]] = None,
 ) -> pd.Series:
     """Pick the row closest to a target moneyness for the specified right."""
-    cols = {**_DEFAULT_COLS, **(cols or {})}
-    sym_col = cols["symbol"]
-    strike_col = cols["strike"]
-    mid_col = cols["mid"]
-    mny_col = cols["moneyness"]
+    sym_col = chain["contractSymbol"]
+    strike_col = chain["strike"]
+    mid_col = chain["mid"]
+    mny_col = chain["moneyness"]
 
-    _require_cols(chain, [sym_col, strike_col, mid_col, mny_col])
-    rcol = _infer_right_col(chain, cols)
-
-    df = chain.copy()
-    df[rcol] = _standardize_right(df[rcol])
-
-    df = df[df[rcol] == right].copy()
+    df = df.copy()
     if df.empty:
-        raise ValueError(f"No rows found for right={right}")
+        raise ValueError(f"No rows found")
 
     # prefer non-null mid
     df = df.dropna(subset=[mid_col, mny_col, strike_col])
