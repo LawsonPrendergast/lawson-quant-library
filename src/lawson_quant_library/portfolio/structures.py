@@ -29,10 +29,6 @@ import numpy as np
 import pandas as pd
 
 from lawson_quant_library.portfolio.portfolio import Leg, Portfolio
-''
-
-
-
 
 
 # -----------------------------
@@ -140,25 +136,22 @@ def pick_atm_strike(
 def pick_by_strike(
     chain: pd.DataFrame,
     *,
-    right: OptionRight,
+    type: str,
     strike: float,
     cols: Optional[Dict[str, str]] = None,
 ) -> pd.Series:
     """Pick the best row for a given right and exact strike (closest if multiple)."""
-    cols = {**_DEFAULT_COLS, **(cols or {})}
-    sym_col = cols["symbol"]
+    cols = chain.columns
+    sym_col = cols["contractSymbol"]
     strike_col = cols["strike"]
     mid_col = cols["mid"]
-    _require_cols(chain, [sym_col, strike_col, mid_col])
 
-    rcol = _infer_right_col(chain, cols)
+
     df = chain.copy()
-    df[rcol] = _standardize_right(df[rcol])
-    df = df[df[rcol] == right].copy()
 
     df = df.dropna(subset=[mid_col, strike_col])
     if df.empty:
-        raise ValueError(f"No usable rows for right={right}")
+        raise ValueError(f"No usable rows for type={type}")
 
     # If exact strike exists, pick the one with highest volume/openInterest not guaranteed.
     # For now choose closest strike.
@@ -178,11 +171,10 @@ def make_atm_straddle(
     qty: float = 1.0,
     atm_moneyness: float = 1.0,
     name: str = "ATM Straddle",
-    cols: Optional[Dict[str, str]] = None,
 ) -> Portfolio:
     """Long 1 ATM call + long 1 ATM put."""
-    cols = {**_DEFAULT_COLS, **(cols or {})}
-    sym_col = cols["symbol"]
+    cols = chain.columns
+    sym_col = cols["contractSymbol"]
     strike_col = cols["strike"]
     mid_col = cols["mid"]
     mny_col = cols["moneyness"]
@@ -219,34 +211,34 @@ def make_atm_straddle(
     return Portfolio(name=name, legs=legs)
 
 
-def make_vertical_spread(
+def make_spread(
     chain: pd.DataFrame,
     *,
     expiry: str,
-    right: OptionRight,
+    option_type: str,
     k_long: float,
     k_short: float,
     qty: float = 1.0,
     name: Optional[str] = None,
     cols: Optional[Dict[str, str]] = None,
 ) -> Portfolio:
-    """Vertical spread: long K_long, short K_short for a given right."""
-    cols = {**_DEFAULT_COLS, **(cols or {})}
-    sym_col = cols["symbol"]
+    """call spread or put spred: long K_long, short K_short for a given right."""
+    cols = chain.columns
+    sym_col = cols["contractSymbol"]
     strike_col = cols["strike"]
     mid_col = cols["mid"]
     mny_col = cols["moneyness"]
     ttm_col = cols["ttm"]
 
-    long_row = pick_by_strike(chain, right=right, strike=k_long, cols=cols)
-    short_row = pick_by_strike(chain, right=right, strike=k_short, cols=cols)
+    long_row = pick_by_strike(chain, option_type=option_type, strike=k_long, cols=cols)
+    short_row = pick_by_strike(chain, option_type=option_type, strike=k_short, cols=cols)
 
-    spread_name = name or f"{right.title()} Vertical {k_long:g}/{k_short:g}"
+    spread_name = name or f"{option_type.title()} Spread"
 
     legs = (
         Leg(
             contract_symbol=str(long_row[sym_col]),
-            right=right,
+            option_type=option_type,
             strike=float(long_row[strike_col]),
             expiry=expiry,
             qty=float(qty),
@@ -256,7 +248,7 @@ def make_vertical_spread(
         ),
         Leg(
             contract_symbol=str(short_row[sym_col]),
-            right=right,
+            option_type=option_type,
             strike=float(short_row[strike_col]),
             expiry=expiry,
             qty=-float(qty),
@@ -284,15 +276,15 @@ def make_collar(
     Note: This is the common options overlay. If you want 'covered' collar, model the
     underlying position separately in your portfolio layer.
     """
-    cols = {**_DEFAULT_COLS, **(cols or {})}
-    sym_col = cols["symbol"]
+    cols = chain.columns
+    sym_col = cols["contractSymbol"]
     strike_col = cols["strike"]
     mid_col = cols["mid"]
     mny_col = cols["moneyness"]
     ttm_col = cols["ttm"]
 
-    put_row = pick_by_moneyness(chain, right="put", target_moneyness=put_moneyness, cols=cols)
-    call_row = pick_by_moneyness(chain, right="call", target_moneyness=call_moneyness, cols=cols)
+    put_row = pick_by_moneyness(chain, option_type="put", target_moneyness=put_moneyness, cols=cols)
+    call_row = pick_by_moneyness(chain, option_type="call", target_moneyness=call_moneyness, cols=cols)
 
     legs = (
         Leg(
@@ -324,8 +316,8 @@ def make_risk_reversal(
     chain: pd.DataFrame,
     *,
     expiry: str,
-    put_moneyness: float = 0.95,
-    call_moneyness: float = 1.05,
+    put_delta: float = 0.25,
+    call_delta: float = 0.25,
     qty: float = 1.0,
     direction: Literal["bullish", "bearish"] = "bullish",
     name: Optional[str] = None,
@@ -338,15 +330,15 @@ def make_risk_reversal(
 
     (Delta-based selection can be added later; moneyness-based works well with Yahoo.)
     """
-    cols = {**_DEFAULT_COLS, **(cols or {})}
-    sym_col = cols["symbol"]
+    cols = chain.columns
+    sym_col = cols["contractSymbol"]
     strike_col = cols["strike"]
     mid_col = cols["mid"]
-    mny_col = cols["moneyness"]
+    delta_col = cols["delta"]
     ttm_col = cols["ttm"]
 
-    put_row = pick_by_moneyness(chain, right="put", target_moneyness=put_moneyness, cols=cols)
-    call_row = pick_by_moneyness(chain, right="call", target_moneyness=call_moneyness, cols=cols)
+    put_row = pick_by_moneyness(chain, right="put", target_moneyness=put_delta, cols=cols)
+    call_row = pick_by_moneyness(chain, right="call", target_moneyness=call_delta, cols=cols)
 
     rr_name = name or ("Risk Reversal (Bullish)" if direction == "bullish" else "Risk Reversal (Bearish)")
 
@@ -361,7 +353,7 @@ def make_risk_reversal(
                 qty=float(qty),
                 mid=float(call_row[mid_col]) if pd.notna(call_row[mid_col]) else None,
                 ttm=float(call_row[ttm_col]) if ttm_col in call_row.index and pd.notna(call_row[ttm_col]) else None,
-                moneyness=float(call_row[mny_col]) if pd.notna(call_row[mny_col]) else None,
+                moneyness=float(call_row[delta_col]) if pd.notna(call_row[delta_col]) else None,
             ),
             Leg(
                 contract_symbol=str(put_row[sym_col]),
@@ -371,7 +363,7 @@ def make_risk_reversal(
                 qty=-float(qty),
                 mid=float(put_row[mid_col]) if pd.notna(put_row[mid_col]) else None,
                 ttm=float(put_row[ttm_col]) if ttm_col in put_row.index and pd.notna(put_row[ttm_col]) else None,
-                moneyness=float(put_row[mny_col]) if pd.notna(put_row[mny_col]) else None,
+                moneyness=float(put_row[delta_col]) if pd.notna(put_row[delta_col]) else None,
             ),
         )
     else:
@@ -385,7 +377,7 @@ def make_risk_reversal(
                 qty=float(qty),
                 mid=float(put_row[mid_col]) if pd.notna(put_row[mid_col]) else None,
                 ttm=float(put_row[ttm_col]) if ttm_col in put_row.index and pd.notna(put_row[ttm_col]) else None,
-                moneyness=float(put_row[mny_col]) if pd.notna(put_row[mny_col]) else None,
+                moneyness=float(put_row[delta_col]) if pd.notna(put_row[delta_col]) else None,
             ),
             Leg(
                 contract_symbol=str(call_row[sym_col]),
@@ -395,7 +387,7 @@ def make_risk_reversal(
                 qty=-float(qty),
                 mid=float(call_row[mid_col]) if pd.notna(call_row[mid_col]) else None,
                 ttm=float(call_row[ttm_col]) if ttm_col in call_row.index and pd.notna(call_row[ttm_col]) else None,
-                moneyness=float(call_row[mny_col]) if pd.notna(call_row[mny_col]) else None,
+                moneyness=float(call_row[delta_col]) if pd.notna(call_row[delta_col]) else None,
             ),
         )
 
